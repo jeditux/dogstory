@@ -90,6 +90,10 @@ namespace json_loader {
 
         try {
             std::ifstream input(json_path);
+            if (!input) {
+                throw std::invalid_argument("Missing config file");
+            }
+
             std::stringstream buffer;
             buffer << input.rdbuf();
 
@@ -117,7 +121,7 @@ namespace json_loader {
                 for (const auto& office : offices) {
                     AddOffice(newMap, office);
                 }
-            
+
                 game.AddMap(newMap);
             }
         } catch (std::exception& e) {

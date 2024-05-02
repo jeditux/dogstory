@@ -23,9 +23,9 @@ public:
     SessionBase(const SessionBase&) = delete;
     SessionBase& operator=(const SessionBase&) = delete;
 
-    void Run() {
-        net::dispatch(stream_.get_executor(), beast::bind_front_handler(&SessionBase::Read, GetSharedThis()));
-    }
+    void Run();
+
+    virtual ~SessionBase() = default;
 protected:
     using HttpRequest = http::request<http::string_body>;
 
@@ -33,14 +33,7 @@ protected:
         : stream_(std::move(socket)) {
     }
 
-    ~SessionBase() = default;
-
-    void Read() {
-        using namespace std::literals;
-        request_ = {};
-        stream_.expires_after(30s);
-        http::async_read(stream_, buffer_, request_, beast::bind_front_handler(&SessionBase::OnRead, GetSharedThis()));
-    }
+    void Read();
 
     template <typename Body, typename Fields>
     void Write(http::response<Body, Fields>&& response) {
@@ -60,35 +53,11 @@ private:
 
     virtual std::shared_ptr<SessionBase> GetSharedThis() = 0;
 
-    void OnRead(beast::error_code ec, [[maybe_unused]] std::size_t bytes_read) {
-        using namespace std::literals;
-        if (ec == http::error::end_of_stream) {
-            return Close();
-        }
-        if (ec) {
-            return ReportError(ec, "read"sv);
-        }
-        HandleRequest(std::move(request_));
-    }
+    void OnRead(beast::error_code ec, [[maybe_unused]] std::size_t bytes_read);
 
-    void OnWrite(bool close, beast::error_code ec, [[maybe_unused]] std::size_t bytes_written) {
-        using namespace std::literals;
-        
-        if (ec) {
-            return ReportError(ec, "write"sv);
-        }
+    void OnWrite(bool close, beast::error_code ec, [[maybe_unused]] std::size_t bytes_written);
 
-        if (close) {
-            return Close();
-        }
-        
-        Read();
-    }
-
-    void Close() {
-        beast::error_code ec;
-        stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
-    }
+    void Close();
 
     virtual void HandleRequest(HttpRequest&& request) = 0;
 };
